@@ -6,7 +6,7 @@
 //
 // The mapping from encoding labels to encodings is defined at
 // https://encoding.spec.whatwg.org/.
-package charset // import "golang.org/x/net/html/charset"
+package charset // import "github.com/chris-ramon/net/html/charset"
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"golang.org/x/net/html"
+	"github.com/chris-ramon/net/html"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/htmlindex"
@@ -162,7 +162,7 @@ func prescan(content []byte) (e encoding.Encoding, name string) {
 			e = nil
 			for hasAttr {
 				var key, val []byte
-				key, val, hasAttr = z.TagAttr()
+				key, val, _, _, hasAttr = z.TagAttr()
 				ks := string(key)
 				if attrList[ks] {
 					continue

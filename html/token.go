@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/net/html/atom"
+	"github.com/chris-ramon/net/html/atom"
 )
 
 // A TokenType is the type of a Token.
@@ -66,6 +66,9 @@ func (t TokenType) String() string {
 // Namespace is only used by the parser, not the tokenizer.
 type Attribute struct {
 	Namespace, Key, Val string
+
+	// ValStart and ValEnd are the byte offsets of Val.
+	ValStart, ValEnd int
 }
 
 // A Token consists of a TokenType and some Data (tag name for start and end
@@ -1147,7 +1150,7 @@ func (z *Tokenizer) TagName() (name []byte, hasAttr bool) {
 // TagAttr returns the lower-cased key and unescaped value of the next unparsed
 // attribute for the current tag token and whether there are more attributes.
 // The contents of the returned slices may change on the next call to Next.
-func (z *Tokenizer) TagAttr() (key, val []byte, moreAttr bool) {
+func (z *Tokenizer) TagAttr() (key, val []byte, start, end int, moreAttr bool) {
 	if z.nAttrReturned < len(z.attr) {
 		switch z.tt {
 		case StartTagToken, SelfClosingTagToken:
@@ -1155,10 +1158,10 @@ func (z *Tokenizer) TagAttr() (key, val []byte, moreAttr bool) {
 			z.nAttrReturned++
 			key = z.buf[x[0].start:x[0].end]
 			val = z.buf[x[1].start:x[1].end]
-			return lower(key), unescape(convertNewlines(val), true), z.nAttrReturned < len(z.attr)
+			return lower(key), unescape(convertNewlines(val), true), x[1].start, x[1].end, z.nAttrReturned < len(z.attr)
 		}
 	}
-	return nil, nil, false
+	return nil, nil, 0, 0, false
 }
 
 // Token returns the next Token. The result's Data and Attr values remain valid
@@ -1172,8 +1175,9 @@ func (z *Tokenizer) Token() Token {
 		name, moreAttr := z.TagName()
 		for moreAttr {
 			var key, val []byte
-			key, val, moreAttr = z.TagAttr()
-			t.Attr = append(t.Attr, Attribute{"", atom.String(key), string(val)})
+			var start, end int
+			key, val, start, end, moreAttr = z.TagAttr()
+			t.Attr = append(t.Attr, Attribute{"", atom.String(key), string(val), start, end})
 		}
 		if a := atom.Lookup(name); a != 0 {
 			t.DataAtom, t.Data = a, a.String()
