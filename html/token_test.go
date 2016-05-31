@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"os"
 	"reflect"
 	"runtime"
 	"strings"
@@ -746,3 +747,42 @@ func benchmarkTokenizer(b *testing.B, level int) {
 func BenchmarkRawLevelTokenizer(b *testing.B)  { benchmarkTokenizer(b, rawLevel) }
 func BenchmarkLowLevelTokenizer(b *testing.B)  { benchmarkTokenizer(b, lowLevel) }
 func BenchmarkHighLevelTokenizer(b *testing.B) { benchmarkTokenizer(b, highLevel) }
+
+func TestLargeFile(t *testing.T) {
+	data, err := ioutil.ReadFile("testdata/large.html")
+	if err != nil {
+		t.Fatalf("Cannot read testdata: %v", err)
+	}
+	fi, err := os.Stat("testdata/large.html")
+	if err != nil {
+		t.Fatalf("Cannot obtain testdata file size: %v", err)
+	}
+
+	z := NewTokenizer(bytes.NewReader(data))
+L:
+	for {
+		tt := z.Next()
+		switch tt {
+		case ErrorToken:
+			if z.Err() != io.EOF {
+				t.Fatalf("Cannot parse testdata: %v", err)
+				return
+			}
+			break L
+		case StartTagToken, SelfClosingTagToken:
+			{
+				tok := z.Token()
+				for _, attr := range tok.Attr {
+					expected := string(data[attr.ValStart:attr.ValEnd])
+					if expected != attr.Val {
+						t.Fatalf("Failure at %d:%d, expected %s, actual %s", attr.ValStart, attr.ValEnd, expected, attr.Val)
+					}
+				}
+			}
+		}
+	}
+	if z.bytesRead != int(fi.Size()) {
+		t.Fatalf("Expected to read %d bytes of data, read %d instead", fi.Size(), z.bytesRead)
+	}
+
+}
