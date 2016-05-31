@@ -172,6 +172,12 @@ type Tokenizer struct {
 	convertNUL bool
 	// allowCDATA is whether CDATA sections are allowed in the current context.
 	allowCDATA bool
+	// currentOffset indicates byte offset of current buffer
+	// In order to compute token's offset use currentOffset + buf[data.start]
+	currentOffset int
+	// bytesRead indicates how many bytes were read from the underlying
+	// stream
+	bytesRead int
 }
 
 // AllowCDATA sets whether or not the tokenizer recognizes <![CDATA[foo]]> as
@@ -278,6 +284,8 @@ func (z *Tokenizer) readByte() byte {
 			z.err = z.readErr
 			return 0
 		}
+		z.currentOffset = z.bytesRead - d
+		z.bytesRead += n
 		z.buf = buf1[:d+n]
 	}
 	x := z.buf[z.raw.end]
@@ -1158,7 +1166,7 @@ func (z *Tokenizer) TagAttr() (key, val []byte, start, end int, moreAttr bool) {
 			z.nAttrReturned++
 			key = z.buf[x[0].start:x[0].end]
 			val = z.buf[x[1].start:x[1].end]
-			return lower(key), unescape(convertNewlines(val), true), x[1].start, x[1].end, z.nAttrReturned < len(z.attr)
+			return lower(key), unescape(convertNewlines(val), true), z.currentOffset + x[1].start, z.currentOffset + x[1].end, z.nAttrReturned < len(z.attr)
 		}
 	}
 	return nil, nil, 0, 0, false
